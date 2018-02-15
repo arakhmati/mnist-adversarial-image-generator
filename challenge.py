@@ -82,8 +82,8 @@ if __name__ == '__main__':
     
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--train',        type=bool,   default=False,   help='train the network')
-    parser.add_argument('-e', '--evaluate',     type=bool,   default=False,   help='run evaluation')
+    parser.add_argument('-t', '--train',        action='store_true',          help='train the network')
+    parser.add_argument('-e', '--evaluate',     action='store_true',          help='run evaluation')
     parser.add_argument('-s', '--steps',        type=int,    default=20000,   help='number of training steps')
     parser.add_argument('-b', '--batch_size',   type=int,    default=64,      help='training batch size')
     parser.add_argument('-o', '--old_label',    type=int,    default=2,       help='label to replace')
