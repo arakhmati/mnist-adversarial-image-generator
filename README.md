@@ -15,7 +15,7 @@ For consequent runs, use:
 ```
 python challenge.py
 ```
-Additionally, you can specify other arguments:
+You can specify the following arguments when running the script:
 ```
 '-t', type=bool,  action='store_true', help='train the network'
 '-e', type=bool,  action='store_true', help='run evaluation'
@@ -27,3 +27,7 @@ Additionally, you can specify other arguments:
 '-l', type=float, default=0.001,       help='adversarial learning rate'
  ```
     
+## Acknowledgments
+* [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts) by 
+* [Breaking Linear Classifiers on ImageNet](http://karpathy.github.io/2015/03/30/breaking-convnets/) by Andrej Karpathy
+* [Explaining and Harnessing Adversarial Examples]](https://arxiv.org/pdf/1412.6572.pdf) by Ian J. Goodfellow, Jonathon Shlens and Christian Szegedy
