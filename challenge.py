@@ -55,7 +55,12 @@ def cnn_model_fn(features, labels, mode):
     if mode == tf.estimator.ModeKeys.PREDICT:
         # If adversarial labels were passed, compute the gradients
         if 'adv_labels' in features: 
+            
             loss = tf.losses.sparse_softmax_cross_entropy(labels=features["adv_labels"], logits=logits)
+            reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            reg_lambda = features["reg_lambda"]
+            loss = loss + reg_lambda * sum(reg_losses)
+            
             gradients = tf.gradients(loss, [input_layer])[0]
             predictions['gradients'] = tf.reshape(gradients, (-1, 784))
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
@@ -73,7 +78,10 @@ def cnn_model_fn(features, labels, mode):
     # Add evaluation metrics (for EVAL mode)    
     eval_metric_ops = {
       "accuracy": tf.metrics.accuracy(
-          labels=labels, predictions=predictions["classes"])}
+              labels=labels,
+              predictions=predictions["classes"]
+          )
+      }
       
     return tf.estimator.EstimatorSpec(
       mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
@@ -88,8 +96,9 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size',   type=int,    default=64,      help='training batch size')
     parser.add_argument('-o', '--old_label',    type=int,    default=2,       help='label to replace')
     parser.add_argument('-n', '--new_label',    type=int,    default=6,       help='adversarial label')
-    parser.add_argument('-r', '--n_to_replace', type=int,    default=10,      help='number of images to replace')
-    parser.add_argument('-l', '--adv_lr',       type=float,  default=0.001,   help='adversarial learning rate')
+    parser.add_argument('-m', '--n_to_modify',  type=int,    default=10,      help='number of images to modify')
+    parser.add_argument('-l', '--adv_lr',       type=float,  default=0.001,  help='adversarial learning rate')
+    parser.add_argument('-r', '--reg_lambda',   type=float,  default=0.0001, help='regularization lambda')
     args = parser.parse_args()
     
     train      = args.train
@@ -99,9 +108,9 @@ if __name__ == '__main__':
     
     old_label    = args.old_label
     new_label    = args.new_label
-    n_to_replace = args.n_to_replace
+    n_to_modify  = args.n_to_modify
     adv_lr       = args.adv_lr
-    
+    reg_lambda   = args.reg_lambda
     
     # Load training data
     mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -143,7 +152,7 @@ if __name__ == '__main__':
         print('{}'.format(eval_results))
     
     # Obtain the indices of the images containing old label
-    indices = np.where(labels == old_label)[0][:n_to_replace]
+    indices = np.where(labels == old_label)[0][:n_to_modify]
     
     # Obtain all the images containing old label
     images = images[indices]
@@ -153,12 +162,17 @@ if __name__ == '__main__':
     adv_images = np.copy(images)
     adv_labels = np.zeros_like(labels) + new_label
     
+    # reg_lambda has to be an array with shape [n_to_modify, ...]
+    reg_lambda =  np.zeros_like(labels, dtype=np.float32) + reg_lambda
+    
+    # Infinite while loop that terminates once all of the images predict new_label
     while True:
         adv_pred_results = mnist_classifier.predict(
                 input_fn=tf.estimator.inputs.numpy_input_fn(
                     x={
                         "images":     adv_images,
-                        "adv_labels": adv_labels
+                        "adv_labels": adv_labels,
+                        "reg_lambda": reg_lambda
                     },
                     num_epochs=1,
                     shuffle=False)
@@ -166,25 +180,37 @@ if __name__ == '__main__':
         # Convert generator to list to reuse it later
         adv_pred_results = list(adv_pred_results)
         
-        
         # Obtain class labels
         classes   = [pred['classes'] for pred in adv_pred_results]
     
         # Reshape gradients and update the adversarial image
         gradients = np.asarray([pred['gradients'] for pred in adv_pred_results])
-        adv_images -= adv_lr * np.sign(gradients)
+        
+        # Determine  whether to update the adversarial image further or not
+        update = (np.asarray(classes) == old_label).reshape(-1, 1)
+        
+        # Perform the update
+        adv_images -= np.multiply(adv_lr*np.sign(gradients), update)
 #        plot(images, gradients, adv_images, classes)
     
         # Print adversarial probabilities to see the progress
-        adv_probabilities = []
+        print('Adversarial Probabilities = ', end='')
         for pred in adv_pred_results:
             probabilities = pred['probabilities'] * 100
-            adv_probabilities.append(probabilities[new_label])
-        print('Adversarial Probabilities = {}'.format(adv_probabilities))
+            print('{:10f}'.format(probabilities[new_label]), end='')
+        print()
         
         # If all images predict the adversarial label, break out of the loop
         if (np.asarray(classes) == new_label).all():
             break
+        
+    # Infer the classes of actual images
+    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={"images": images},
+        num_epochs=1,
+        shuffle=False)
+    pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
+    classes = [pred['classes'] for pred in pred_results]
     
     # Infer the classes of adversarial images
     pred_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -192,11 +218,11 @@ if __name__ == '__main__':
         num_epochs=1,
         shuffle=False)
     pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
-    classes   = [pred['classes'] for pred in pred_results]
+    adv_classes = [pred['classes'] for pred in pred_results]
     
     # Compute the deltas
     deltas = adv_images - images
     
     # Plot and save the figure
-    fig = plot(images, deltas, adv_images, classes)
+    fig = plot(images, deltas, adv_images, classes, adv_classes)
     fig.savefig('challenge.png')
