@@ -9,7 +9,7 @@ def plot(images, deltas, adv_images, labels=None, cmap='gray'):
     deltas = reshape(deltas)
     adv_images = reshape(adv_images)
     
-    plt.figure(0)
+    fig = plt.figure(0)
     n_rows, h, w = images.shape
     n_cols = 3
     for i in range(n_rows):
@@ -27,3 +27,4 @@ def plot(images, deltas, adv_images, labels=None, cmap='gray'):
         plot_subplot(2, adv_images)
         
     plt.show()
+    return fig
