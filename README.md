@@ -25,7 +25,7 @@ You can specify the following arguments when running the script:
 '-n', type=int,   default=6,           help='adversarial label'
 '-m', type=int,   default=10,          help='number of images to modify'
 '-l', type=float, default=0.001,       help='adversarial learning rate'
-'-r', type=float, default=0.0001,       help='regularization lambda'
+'-r', type=float, default=0.0001,      help='regularization lambda'
  ```
     
 ## Acknowledgments
