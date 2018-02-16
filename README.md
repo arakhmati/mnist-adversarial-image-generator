@@ -1,4 +1,4 @@
-# MNIST adversarial image generator 
+# MNIST Adversarial Image Generator 
 
 ### Download Instructions
 ```
