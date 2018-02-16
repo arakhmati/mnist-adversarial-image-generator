@@ -46,3 +46,4 @@ You can specify the following arguments when running the script:
 * [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts)
 * [Breaking Linear Classifiers on ImageNet](http://karpathy.github.io/2015/03/30/breaking-convnets/) by Andrej Karpathy
 * [Explaining and Harnessing Adversarial Examples](https://arxiv.org/pdf/1412.6572.pdf) by Ian J. Goodfellow, Jonathon Shlens and Christian Szegedy
+* [One pixel attack for fooling deep neural networks](https://arxiv.org/pdf/1710.08864.pdf) by Jiawei Su, Danilo Vasconcellos Vargas and Sakurai Kouichi
