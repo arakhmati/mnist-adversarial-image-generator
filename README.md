@@ -31,6 +31,7 @@ You can specify the following arguments when running the script:
  In this example, 10 images of the digit 2 were modified to be classified as the digit 6
  
  Columns (left to right): Original Image, Delta, Adversarial Image
+ 
  ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/challenge.png)
     
 ## Acknowledgments
