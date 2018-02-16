@@ -1,4 +1,4 @@
-# FOR.ai Technical Challenge 
+# MNIST adversarial image generator 
 
 ### Download Instructions
 ```
@@ -27,6 +27,8 @@ You can specify the following arguments when running the script:
 '-l', type=float, default=0.001,       help='adversarial learning rate'
 '-r', type=float, default=0.0001,      help='regularization lambda'
  ```
+ ### Example
+ ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/challenge.png)
     
 ## Acknowledgments
 * [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts)
