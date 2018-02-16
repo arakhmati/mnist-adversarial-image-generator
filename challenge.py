@@ -86,77 +86,75 @@ def cnn_model_fn(features, labels, mode):
     return tf.estimator.EstimatorSpec(
       mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
     
-if __name__ == '__main__':
+def get_array_from_results(key, results):
+    """Utility function for extracting an array from the results of the predictor."""
+    return np.asarray([result[key] for result in results])   
     
-    # Parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--train',        action='store_true',          help='train the network')
-    parser.add_argument('-e', '--evaluate',     action='store_true',          help='run evaluation')
-    parser.add_argument('-s', '--steps',        type=int,    default=20000,   help='number of training steps')
-    parser.add_argument('-b', '--batch_size',   type=int,    default=64,      help='training batch size')
-    parser.add_argument('-o', '--old_label',    type=int,    default=2,       help='label to replace')
-    parser.add_argument('-n', '--new_label',    type=int,    default=6,       help='adversarial label')
-    parser.add_argument('-m', '--n_to_modify',  type=int,    default=10,      help='number of images to modify')
-    parser.add_argument('-l', '--adv_lr',       type=float,  default=0.001,  help='adversarial learning rate')
-    parser.add_argument('-r', '--reg_lambda',   type=float,  default=0.0001, help='regularization lambda')
-    args = parser.parse_args()
+def generate_adversarial_images(mnist_classifier,
+                              images, labels,
+                              old_label, new_label,
+                              n_to_modify, reg_lambda,
+                              one_pixel=False):
+    """Function for generating adversarial images.
     
-    train      = args.train
-    evaluate   = args.evaluate
-    steps      = args.steps
-    batch_size = args.batch_size
+    Parameters
+    ----------
+    mnist_classifier : tf.estimator.Estimator,
+        Estimator object used to train neural network and make predictions.
+    images : numpy array
+        Original images.
+    labels : numpy array
+        Original labels.
+    old_label : int
+        Label to 'attack'.
+    new_label : int
+        Adversarial label.
+    n_to_modify : int
+        Number of images to modify.
+    reg_lambda : float
+        Regularization lambda.
+    one_pixel : bool
+        Use a single pixel to create an adversarial image.
+        
+    Returns
+    ----------
+    images : numpy array,
+        Original images used to generate adversarial inputs.
+    adv_images : numpy array,
+        Generated adversarial images.
+    """
     
-    old_label    = args.old_label
-    new_label    = args.new_label
-    n_to_modify  = args.n_to_modify
-    adv_lr       = args.adv_lr
-    reg_lambda   = args.reg_lambda
-    
-    # Load training data
-    mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-    
-        # Initialize the estimator
-    mnist_classifier = tf.estimator.Estimator(
-                                model_fn=cnn_model_fn,
-                                model_dir="mnist_convnet_model/"
-                                )
-    
-    if train:
-        ################ PART 1 - CLASSIFICATION #########################
-        train_data = mnist.train.images # Returns np.array
-        train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-        # Create the Estimator
-        # Train the model
-        train_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"images": train_data},
-            y=train_labels,
-            batch_size=batch_size,
-            num_epochs=None,
-            shuffle=True)
-        mnist_classifier.train(input_fn=train_input_fn,steps=steps)
-    
-    #### PART 2 - GENERATION OF ADVERSARIAL IMAGES ####################
-    # Use test data
-    images = mnist.test.images
-    labels = np.asarray(mnist.test.labels, dtype=np.int32)
-    
-    # Evaluate the accuracy to make sure that the model is trained well
-    if evaluate:
-        eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"images": images},
-            y=labels,
-            batch_size=batch_size,
-            num_epochs=1,
-            shuffle=False)
-        eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
-        print('{}'.format(eval_results))
-    
-    # Obtain the indices of the images containing old label
-    indices = np.where(labels == old_label)[0][:n_to_modify]
-    
-    # Obtain all the images containing old label
+     # Obtain all images containing old label
+    indices = np.where(labels == old_label)[0]
     images = images[indices]
     labels = labels[indices]
+    
+    # Classify obtained images
+    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={"images": images},
+        num_epochs=1,
+        shuffle=False)
+    pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
+    pred_results = list(pred_results)
+    
+    classes       = get_array_from_results("classes", pred_results)
+    probabilities = get_array_from_results("probabilities", pred_results)
+    
+    # Get rid of the misclassified images
+    indices       = np.where(classes == old_label)[0]
+    images        = images[indices]
+    labels        = labels[indices]
+    probabilities = probabilities[indices]
+    
+    if one_pixel:
+        # Get rid of the images that have a low probability of adversarial label
+        indices = (probabilities[:, new_label] > 0.35)
+        images  = images[indices]
+        labels  = labels[indices]
+    
+    # Use only 'n_to_modify' images
+    images = images[:n_to_modify]
+    labels = labels[:n_to_modify]
     
     # Create adversarial labels and set them to the new label
     adv_images = np.copy(images)
@@ -164,6 +162,8 @@ if __name__ == '__main__':
     
     # reg_lambda has to be an array with shape [n_to_modify, ...]
     reg_lambda =  np.zeros_like(labels, dtype=np.float32) + reg_lambda
+    
+    max_grad_indices = None
     
     # Infinite while loop that terminates once all of the images predict new_label
     while True:
@@ -177,52 +177,140 @@ if __name__ == '__main__':
                     num_epochs=1,
                     shuffle=False)
                 )
-        # Convert generator to list to reuse it later
+        # Convert generator to list to reuse it multiple times
         adv_pred_results = list(adv_pred_results)
         
-        # Obtain class labels
-        classes   = [pred['classes'] for pred in adv_pred_results]
-    
-        # Reshape gradients and update the adversarial image
-        gradients = np.asarray([pred['gradients'] for pred in adv_pred_results])
+        # Extract class labels from the results
+        classes   = get_array_from_results("classes", adv_pred_results)
+        # Extract gradients from the results
+        gradients = get_array_from_results("gradients", adv_pred_results)
         
-        # Determine  whether to update the adversarial image further or not
-        update = (np.asarray(classes) == old_label).reshape(-1, 1)
+        if one_pixel:
+            # For each image. find one pixel with the biggest absolute gradient
+            if max_grad_indices is None:
+                max_grad_indices = np.argmax(np.abs(gradients), axis=1)
+                
+            # Set all of the gradients to zero except the maximum absolute one
+            for gradient, max_grad_index in zip(gradients, max_grad_indices):
+                max_grad = gradient[max_grad_index]
+                gradient[:] = 0
+                gradient[max_grad_index] = max_grad
         
-        # Perform the update
+        # Determine  whether to update an adversarial image further or not
+        update = (classes == old_label).reshape(-1, 1)
+        
+        # Perform an update
         adv_images -= np.multiply(adv_lr*np.sign(gradients), update)
-#        plot(images, gradients, adv_images, classes)
     
-        # Print adversarial probabilities to see the progress
+        # Print probabilities of adversarial label to see the progress
         print('Adversarial Probabilities = ', end='')
         for pred in adv_pred_results:
-            probabilities = pred['probabilities'] * 100
-            print('{:10f}'.format(probabilities[new_label]), end='')
+            probability_new = pred['probabilities'] * 100
+            print('{:10f}'.format(probability_new[new_label]), end='')
         print()
         
         # If all images predict the adversarial label, break out of the loop
-        if (np.asarray(classes) == new_label).all():
+        if (classes == new_label).all():
             break
         
-    # Infer the classes of actual images
+    return images, adv_images
+
+def predict(mnist_classifier, images):
+    """Utility function for predicting the classes of the images."""
+     # Infer the classes of adversarial images
     pred_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"images": images},
         num_epochs=1,
         shuffle=False)
     pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
-    classes = [pred['classes'] for pred in pred_results]
+    classes = get_array_from_results("classes", pred_results)
+    return classes
     
-    # Infer the classes of adversarial images
-    pred_input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={"images": adv_images},
-        num_epochs=1,
-        shuffle=False)
-    pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
-    adv_classes = [pred['classes'] for pred in pred_results]
+if __name__ == '__main__':
     
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--train',        action='store_true',          help='train the network')
+    parser.add_argument('-e', '--evaluate',     action='store_true',          help='run evaluation')
+    parser.add_argument('-s', '--steps',        type=int,    default=20000,   help='number of training steps')
+    parser.add_argument('-b', '--batch_size',   type=int,    default=64,      help='training batch size')
+    parser.add_argument('-o', '--old_label',    type=int,    default=2,       help='label to replace')
+    parser.add_argument('-n', '--new_label',    type=int,    default=6,       help='adversarial label')
+    parser.add_argument('-m', '--n_to_modify',  type=int,    default=10,      help='number of images to modify')
+    parser.add_argument('-l', '--adv_lr',       type=float,  default=0.01,    help='adversarial learning rate')
+    parser.add_argument('-r', '--reg_lambda',   type=float,  default=0.0001,  help='regularization lambda')
+    parser.add_argument('-p', '--one_pixel',    action='store_true',          help='modify only a single pixel')
+    args = parser.parse_args()
+    
+    # Variables used for training and evaluation 
+    train      = args.train
+    evaluate   = args.evaluate
+    steps      = args.steps
+    batch_size = args.batch_size
+    
+    # Variables used for generation of adversarial images
+    old_label    = args.old_label
+    new_label    = args.new_label
+    n_to_modify  = args.n_to_modify
+    adv_lr       = args.adv_lr
+    reg_lambda   = args.reg_lambda
+    one_pixel    = args.one_pixel
+    
+    # Load training data
+    mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+    
+        # Initialize the estimator
+    mnist_classifier = tf.estimator.Estimator(
+                                model_fn=cnn_model_fn,
+                                model_dir="mnist_convnet_model/"
+                                )
+    
+    # Train the classifier
+    if train:
+        train_data = mnist.train.images # Returns np.array
+        train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
+        # Create the Estimator
+        # Train the model
+        train_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={"images": train_data},
+            y=train_labels,
+            batch_size=batch_size,
+            num_epochs=None,
+            shuffle=True)
+        mnist_classifier.train(input_fn=train_input_fn,steps=steps)
+        
+    # Obtain test data
+    images = mnist.test.images
+    labels = np.asarray(mnist.test.labels, dtype=np.int32)
+    
+    # Evaluate the accuracy to make sure that the model is trained well
+    if evaluate:
+        eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={"images": images},
+            y=labels,
+            batch_size=batch_size,
+            num_epochs=1,
+            shuffle=False)
+        eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
+        accuracy = eval_results["accuracy"]
+        if eval_results["accuracy"] < 0.95:
+            raise ValueError("Accuracy is {:5}% which is low".format(accuracy*100))
+    
+    # Generate adversarial images
+    images, adv_images = generate_adversarial_images(
+                              mnist_classifier,
+                              images, labels,
+                              old_label, new_label,
+                              n_to_modify, reg_lambda,
+                              one_pixel)
+    
+    # Infer the classes
+    classes     = predict(mnist_classifier, images)
+    adv_classes = predict(mnist_classifier, adv_images)
+   
     # Compute the deltas
     deltas = adv_images - images
     
     # Plot and save the figure
     fig = plot(images, deltas, adv_images, classes, adv_classes)
-    fig.savefig('challenge.png')
+    fig.savefig('challenge.png' if not one_pixel else 'bonus.png')

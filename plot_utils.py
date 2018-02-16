@@ -17,12 +17,12 @@ def plot(images, deltas, adv_images, classes=None, adv_classes=None, cmap='gray'
         def plot_subplot(col, arr, title=''):
             ax = plt.subplot2grid((n_rows, n_cols), (i, col))
             ax.axis('off')
-            ax.text(40, 20, title)
+            ax.text(30, 20, title)
             plt.imshow(arr[i].reshape((h, w)), cmap=cmap)
         
-        plot_subplot(0, images, 'Label = {}'.format(classes[i]))        
+        plot_subplot(0, images, '{}'.format(classes[i]))        
         plot_subplot(1, deltas)
-        plot_subplot(2, adv_images, 'Label = {}'.format(adv_classes[i]))
+        plot_subplot(2, adv_images, '{}'.format(adv_classes[i]))
         
     plt.show()
     return fig
