@@ -26,13 +26,21 @@ You can specify the following arguments when running the script:
 '-m', type=int,   default=10,          help='number of images to modify'
 '-l', type=float, default=0.001,       help='adversarial learning rate'
 '-r', type=float, default=0.0001,      help='regularization lambda'
+'-p', type=bool,  action='store_true', help='modify only a single pixel'
  ```
  ### Example
- In this example, 10 images of the digit 2 were modified to be classified as the digit 6
+ In this example, 10 images of the digit 2 were modified to be classified as the digit 6.
  
  Columns (left to right): Original Image, Delta, Adversarial Image
  
  ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/challenge.png)
+ 
+ ### One Pixel Example
+ In this example, the images that initially predict 2 but are close to predicting 6 were modified to predict 6 by changing only a single pixel.
+ 
+ Columns (left to right): Original Image, Delta, Adversarial Image
+ 
+ ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/bonus.png)
     
 ## Acknowledgments
 * [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts)
