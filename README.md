@@ -2,7 +2,7 @@
 
 ### Download Instructions
 ```
-git clone https://github.com/arakhmat/for.ai.challenge
+git clone https://github.com/arakhmat/mnist-adversarial-image-generator
 ```
 
 ### Usage
