@@ -129,14 +129,12 @@ def generate_adversarial_images(mnist_classifier,
     images = images[indices]
     labels = labels[indices]
     
-    # Classify obtained images
+    # Classify selected images and obtain the probabilities of each class
     pred_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"images": images},
         num_epochs=1,
         shuffle=False)
-    pred_results = mnist_classifier.predict(input_fn=pred_input_fn)
-    pred_results = list(pred_results)
-    
+    pred_results  = list(mnist_classifier.predict(input_fn=pred_input_fn))
     classes       = get_array_from_results("classes", pred_results)
     probabilities = get_array_from_results("probabilities", pred_results)
     
@@ -152,7 +150,7 @@ def generate_adversarial_images(mnist_classifier,
         images  = images[indices]
         labels  = labels[indices]
     
-    # Use only 'n_to_modify' images
+    # Use only up to 'n_to_modify' images
     images = images[:n_to_modify]
     labels = labels[:n_to_modify]
     
@@ -165,7 +163,7 @@ def generate_adversarial_images(mnist_classifier,
     
     max_grad_indices = None
     
-    # Infinite while loop that terminates once all of the images predict new_label
+    # Loop terminates once all of the images predict adversarial label, so it might go on forever if an image does not converge :)
     while True:
         adv_pred_results = mnist_classifier.predict(
                 input_fn=tf.estimator.inputs.numpy_input_fn(
@@ -186,17 +184,17 @@ def generate_adversarial_images(mnist_classifier,
         gradients = get_array_from_results("gradients", adv_pred_results)
         
         if one_pixel:
-            # For each image. find one pixel with the biggest absolute gradient
+            # For each image, find one pixel with the largest absolute gradient
             if max_grad_indices is None:
                 max_grad_indices = np.argmax(np.abs(gradients), axis=1)
                 
-            # Set all of the gradients to zero except the maximum absolute one
+            # Set all of the gradients to zero except the largest absolute one
             for gradient, max_grad_index in zip(gradients, max_grad_indices):
                 max_grad = gradient[max_grad_index]
                 gradient[:] = 0
                 gradient[max_grad_index] = max_grad
         
-        # Determine  whether to update an adversarial image further or not
+        # Determine whether to update an adversarial image further or not
         update = (classes == old_label).reshape(-1, 1)
         
         # Perform an update
@@ -217,7 +215,7 @@ def generate_adversarial_images(mnist_classifier,
 
 def predict(mnist_classifier, images):
     """Utility function for predicting the classes of the images."""
-     # Infer the classes of adversarial images
+     # Infer the classes of images
     pred_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"images": images},
         num_epochs=1,
@@ -259,7 +257,7 @@ if __name__ == '__main__':
     # Load training data
     mnist = tf.contrib.learn.datasets.load_dataset("mnist")
     
-        # Initialize the estimator
+    # Initialize the estimator
     mnist_classifier = tf.estimator.Estimator(
                                 model_fn=cnn_model_fn,
                                 model_dir="mnist_convnet_model/"
