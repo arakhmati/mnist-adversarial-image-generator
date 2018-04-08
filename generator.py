@@ -311,4 +311,7 @@ if __name__ == '__main__':
     
     # Plot and save the figure
     fig = plot(images, deltas, adv_images, classes, adv_classes)
-    fig.savefig('challenge.png' if not one_pixel else 'bonus.png')
+
+    if not os.path.exists('images/'):
+        os.mkdir('images/')
+    fig.savefig('images/example.png' if not one_pixel else 'images/one_pixel_example.png')

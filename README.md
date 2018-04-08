@@ -9,11 +9,11 @@ git clone https://github.com/arakhmat/mnist-adversarial-image-generator
 If you running the script for the first time:
 ```
 # Specify '--train' flag to train the model
-python challenge.py -t
+python generator.py -t
 ```
 For consequent runs, use:
 ```
-python challenge.py
+python generator.py
 ```
 You can specify the following arguments when running the script:
 ```
@@ -33,14 +33,14 @@ You can specify the following arguments when running the script:
  
  Columns (left to right): Original Image, Delta, Adversarial Image
  
- ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/challenge.png)
+ ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/images/example.png)
  
  ### One Pixel Example
  In this example, the images that initially predict 2 but are close to predicting 6 were modified to predict 6 by changing only a single pixel.
  
  Columns (left to right): Original Image, Delta, Adversarial Image
  
- ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/bonus.png)
+ ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/images/one_pixel_example.png))
     
 ## Acknowledgments
 * [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts)
