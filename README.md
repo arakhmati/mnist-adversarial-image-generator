@@ -40,7 +40,7 @@ You can specify the following arguments when running the script:
  
  Columns (left to right): Original Image, Delta, Adversarial Image
  
- ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/images/one_pixel_example.png))
+ ![alt text](https://github.com/arakhmat/mnist-adversarial-image-generator/blob/master/images/one_pixel_example.png)
     
 ## Acknowledgments
 * [A Guide to TF Layers: Building a Convolutional Neural Network](https://www.tensorflow.org/get_started/mnist/pros#deep-mnist-for-experts)
